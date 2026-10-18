@@ -1,0 +1,10 @@
+---
+- name: Install Hawser
+  ansible.builtin.include_tasks:
+    file: install.yml
+  when: hawser_state == 'present'
+
+- name: Remove Hawser
+  ansible.builtin.include_tasks:
+    file: uninstall.yml
+  when: hawser_state == 'absent'

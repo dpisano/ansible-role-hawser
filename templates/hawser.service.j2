@@ -1,0 +1,24 @@
+# Managed by Ansible - changes will be overwritten.
+[Unit]
+Description=Hawser - Remote Docker Agent for Dockhand
+Documentation=https://github.com/{{ hawser_github_repo }}
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart={{ hawser_install_dir }}/hawser
+Restart=always
+RestartSec=10
+EnvironmentFile={{ hawser_config_dir }}/config
+
+# Hawser drives the Docker socket and compose, so it cannot drop privileges
+# or NoNewPrivileges; the filesystem is still locked down.
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ hawser_docker_socket }} {{ hawser_stacks_dir }}
+
+[Install]
+WantedBy=multi-user.target

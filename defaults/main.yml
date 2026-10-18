@@ -1,0 +1,57 @@
+---
+# present -> install, configure and (if the version changed) update Hawser
+# absent  -> stop and remove the service and binary
+hawser_state: present
+
+# "latest" resolves the newest GitHub release on every run, so a plain re-run
+# updates the agent. Pin a release (e.g. "0.2.50" or "v0.2.50") to hold it.
+hawser_version: latest
+
+hawser_github_repo: Finsys/hawser
+hawser_install_dir: /usr/local/bin
+hawser_config_dir: /etc/hawser
+
+# Shared secret between this agent and Dockhand. Required in edge mode and for
+# a standard-mode agent listening on a non-loopback address.
+hawser_token: ""
+
+# Edge mode: set to wss://<dockhand>/api/hawser/connect and the agent dials out
+# to Dockhand (needs hawser_token). Leave empty for standard mode, where
+# Dockhand connects to the agent on hawser_port.
+hawser_dockhand_server_url: ""
+
+hawser_port: 2376
+# 127.0.0.1 is enough for an edge-mode agent (only the container healthcheck
+# uses the port).
+hawser_bind_address: 0.0.0.0
+hawser_docker_socket: /var/run/docker.sock
+
+# Standard-mode TLS: paths on the target host (not copied by this role).
+hawser_tls_cert: ""
+hawser_tls_key: ""
+# Edge-mode TLS for a Dockhand with a private CA.
+hawser_ca_cert: ""
+hawser_tls_skip_verify: false
+
+# Where Dockhand keeps compose stacks on this host. Created by the role.
+hawser_stacks_dir: /data/stacks
+
+hawser_agent_name: ""
+hawser_log_level: info
+
+# Extra KEY: value pairs written to the config file, e.g. {COMPOSE_TIMEOUT: 1800}.
+hawser_extra_config: {}
+
+# Packages needed to download the release. The role does not install Docker
+# itself (use geerlingguy.docker or similar first).
+hawser_packages:
+  - ca-certificates
+  - curl
+
+# Hide the tasks that handle the token.
+hawser_no_log: true
+
+hawser_arch_map:
+  x86_64: amd64
+  aarch64: arm64
+  armv7l: arm

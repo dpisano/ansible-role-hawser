@@ -1,0 +1,175 @@
+---
+- name: Assert the configuration is usable
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['system'] == 'Linux'
+      - ansible_facts['architecture'] in hawser_arch_map
+      - hawser_dockhand_server_url | length == 0 or hawser_token | length > 0
+      - hawser_dockhand_server_url | length > 0 or hawser_bind_address in ['127.0.0.1', 'localhost', '::1'] or hawser_token | length > 0
+      - (hawser_tls_cert | length > 0) == (hawser_tls_key | length > 0)
+    fail_msg: >-
+      Unsupported platform, or hawser_token is missing (required in edge mode and
+      for standard mode on a non-loopback address), or only one of
+      hawser_tls_cert / hawser_tls_key is set.
+    quiet: true
+
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name: "{{ hawser_packages }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Resolve the latest release
+  when: hawser_version == 'latest'
+  block:
+    - name: Query GitHub for the latest release
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ hawser_github_repo }}/releases/latest"
+        return_content: true
+      register: hawser_latest_release
+      until: hawser_latest_release.status == 200
+      retries: 3
+      delay: 5
+      changed_when: false
+      check_mode: false
+
+    - name: Set the version from the release tag
+      ansible.builtin.set_fact:
+        hawser_resolved_version: "{{ hawser_latest_release.json.tag_name | regex_replace('^v', '') }}"
+
+- name: Set the version from hawser_version
+  ansible.builtin.set_fact:
+    hawser_resolved_version: "{{ hawser_version | regex_replace('^v', '') }}"
+  when: hawser_version != 'latest'
+
+- name: Compute release asset names
+  ansible.builtin.set_fact:
+    hawser_asset: "hawser_{{ hawser_resolved_version }}_linux_{{ hawser_arch_map[ansible_facts['architecture']] }}.tar.gz"
+    hawser_release_url: "https://github.com/{{ hawser_github_repo }}/releases/download/v{{ hawser_resolved_version }}"
+
+- name: Create the config and stacks directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - "{{ hawser_config_dir }}"
+    - "{{ hawser_stacks_dir }}"
+
+- name: Read the installed version marker
+  ansible.builtin.slurp:
+    src: "{{ hawser_config_dir }}/.installed-version"
+  register: hawser_installed_marker
+  failed_when: false
+
+- name: Check the binary exists
+  ansible.builtin.stat:
+    path: "{{ hawser_install_dir }}/hawser"
+  register: hawser_binary
+
+- name: Download and install the binary
+  when: >-
+    not hawser_binary.stat.exists or
+    hawser_installed_marker.content is not defined or
+    (hawser_installed_marker.content | b64decode | trim) != hawser_resolved_version
+  block:
+    - name: Create a scratch directory
+      ansible.builtin.tempfile:
+        state: directory
+        prefix: hawser.
+      register: hawser_tmp
+
+    - name: Fetch the release checksums
+      ansible.builtin.get_url:
+        url: "{{ hawser_release_url }}/checksums.txt"
+        dest: "{{ hawser_tmp.path }}/checksums.txt"
+        mode: "0644"
+
+    - name: Read the checksum for this asset
+      ansible.builtin.command:
+        cmd: "awk '$2 == \"{{ hawser_asset }}\" {print $1}' {{ hawser_tmp.path }}/checksums.txt"
+      register: hawser_checksum
+      changed_when: false
+      failed_when: hawser_checksum.stdout | length == 0
+
+    - name: Download the release archive
+      ansible.builtin.get_url:
+        url: "{{ hawser_release_url }}/{{ hawser_asset }}"
+        dest: "{{ hawser_tmp.path }}/{{ hawser_asset }}"
+        checksum: "sha256:{{ hawser_checksum.stdout }}"
+        mode: "0644"
+
+    - name: Extract the binary
+      ansible.builtin.unarchive:
+        src: "{{ hawser_tmp.path }}/{{ hawser_asset }}"
+        dest: "{{ hawser_tmp.path }}"
+        remote_src: true
+        include: hawser
+
+    - name: Install the binary
+      ansible.builtin.copy:
+        src: "{{ hawser_tmp.path }}/hawser"
+        dest: "{{ hawser_install_dir }}/hawser"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+      notify: Restart hawser
+
+    - name: Record the installed version
+      ansible.builtin.copy:
+        content: "{{ hawser_resolved_version }}\n"
+        dest: "{{ hawser_config_dir }}/.installed-version"
+        owner: root
+        group: root
+        mode: "0644"
+  always:
+    - name: Remove the scratch directory
+      ansible.builtin.file:
+        path: "{{ hawser_tmp.path }}"
+        state: absent
+      when: hawser_tmp.path is defined
+
+- name: Write the config
+  ansible.builtin.template:
+    src: config.j2
+    dest: "{{ hawser_config_dir }}/config"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: "{{ hawser_no_log }}"
+  notify: Restart hawser
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: hawser.service.j2
+    dest: /etc/systemd/system/hawser.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart hawser
+
+- name: Apply pending handlers before starting the service
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start hawser
+  ansible.builtin.systemd:
+    name: hawser
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for the health endpoint
+  ansible.builtin.uri:
+    url: "http://{{ (hawser_bind_address in ['0.0.0.0', '::']) | ternary('127.0.0.1', hawser_bind_address) }}:{{ hawser_port }}/_hawser/health"
+  register: hawser_health
+  until: hawser_health.status == 200
+  retries: 10
+  delay: 3
+  changed_when: false
+  check_mode: false

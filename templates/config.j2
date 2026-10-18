@@ -1,0 +1,27 @@
+# Managed by Ansible - changes will be overwritten.
+DOCKER_SOCKET={{ hawser_docker_socket }}
+STACKS_DIR={{ hawser_stacks_dir }}
+LOG_LEVEL={{ hawser_log_level }}
+PORT={{ hawser_port }}
+BIND_ADDRESS={{ hawser_bind_address }}
+{% if hawser_token | length > 0 %}
+TOKEN={{ hawser_token }}
+{% endif %}
+{% if hawser_dockhand_server_url | length > 0 %}
+DOCKHAND_SERVER_URL={{ hawser_dockhand_server_url }}
+{% if hawser_ca_cert | length > 0 %}
+CA_CERT={{ hawser_ca_cert }}
+{% endif %}
+{% if hawser_tls_skip_verify | bool %}
+TLS_SKIP_VERIFY=true
+{% endif %}
+{% elif hawser_tls_cert | length > 0 %}
+TLS_CERT={{ hawser_tls_cert }}
+TLS_KEY={{ hawser_tls_key }}
+{% endif %}
+{% if hawser_agent_name | length > 0 %}
+AGENT_NAME={{ hawser_agent_name }}
+{% endif %}
+{% for key, value in hawser_extra_config.items() %}
+{{ key }}={{ value }}
+{% endfor %}

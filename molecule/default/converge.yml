@@ -1,0 +1,26 @@
+---
+# prepare.yml leaves an older pinned release installed, so the first pass here
+# covers the update path; the idempotence pass must then change nothing.
+- name: Converge
+  hosts: all
+  become: true
+  tasks:
+    - name: Refuse to run without a token on a non-loopback bind
+      block:
+        - name: Apply the role with no token
+          ansible.builtin.include_role:
+            name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+        - name: Fail if the guard did not fire
+          ansible.builtin.fail:
+            msg: expected the role to fail without a token
+      rescue:
+        - name: Confirm the guard fired
+          ansible.builtin.assert:
+            that: ansible_failed_task.name == "Assert the configuration is usable"
+
+    - name: Update to the latest release
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      vars:
+        hawser_token: molecule-token
+        hawser_agent_name: molecule

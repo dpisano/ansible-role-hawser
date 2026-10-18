@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  role_name: hawser
+  namespace: dpisano
+  author: David Pisano
+  description: Install, configure and update the Hawser remote Docker agent for Dockhand
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+  galaxy_tags:
+    - hawser
+    - dockhand
+    - docker
+    - agent
+
+dependencies: []

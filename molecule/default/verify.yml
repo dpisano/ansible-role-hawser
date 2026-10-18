@@ -1,0 +1,45 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  tasks:
+    - name: Read the installed version marker
+      ansible.builtin.slurp:
+        src: /etc/hawser/.installed-version
+      register: marker
+
+    - name: Look up the latest release
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Finsys/hawser/releases/latest
+        return_content: true
+      register: latest
+
+    - name: Assert the agent was updated off the pinned release
+      ansible.builtin.assert:
+        that: (marker.content | b64decode | trim) == (latest.json.tag_name | regex_replace('^v', ''))
+
+    - name: Check the service is running
+      ansible.builtin.service_facts:
+
+    - name: Assert hawser is active
+      ansible.builtin.assert:
+        that: ansible_facts.services['hawser.service'].state == 'running'
+
+    - name: Check the config file mode
+      ansible.builtin.stat:
+        path: /etc/hawser/config
+      register: cfg
+
+    - name: Assert the config is private
+      ansible.builtin.assert:
+        that: cfg.stat.mode == '0600'
+
+    - name: Hit the health endpoint
+      ansible.builtin.uri:
+        url: http://127.0.0.1:2376/_hawser/health
+        return_content: true
+      register: health
+
+    - name: Assert healthy
+      ansible.builtin.assert:
+        that: "'healthy' in health.content"

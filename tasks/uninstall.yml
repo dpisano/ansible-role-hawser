@@ -1,0 +1,24 @@
+---
+- name: Check for the systemd unit
+  ansible.builtin.stat:
+    path: /etc/systemd/system/hawser.service
+  register: hawser_unit
+
+- name: Stop and disable hawser
+  ansible.builtin.systemd:
+    name: hawser
+    enabled: false
+    state: stopped
+  when: hawser_unit.stat.exists
+
+- name: Remove hawser files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/systemd/system/hawser.service
+    - "{{ hawser_install_dir }}/hawser"
+    - "{{ hawser_config_dir }}"
+  notify: Reload systemd
+
+# hawser_stacks_dir is left alone: it holds the user's compose stacks.

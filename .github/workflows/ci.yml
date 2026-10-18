@@ -1,0 +1,61 @@
+---
+name: CI
+
+"on":
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install ansible-core ansible-lint yamllint
+
+      - name: yamllint
+        run: yamllint --strict .
+
+      - name: ansible-lint
+        run: ansible-lint
+
+  molecule:
+    name: Molecule (${{ matrix.image }})
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - geerlingguy/docker-debian13-ansible:latest
+          - geerlingguy/docker-ubuntu2404-ansible:latest
+    steps:
+      # Molecule resolves the role by its directory name; keep the checkout
+      # named after the repository so ANSIBLE_ROLES_PATH=.. finds it.
+      - uses: actions/checkout@v4
+        with:
+          path: ${{ github.event.repository.name }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tools
+        run: pip install ansible-core molecule "molecule-plugins[docker]" docker
+
+      - name: molecule test
+        run: molecule test
+        working-directory: ${{ github.event.repository.name }}
+        env:
+          MOLECULE_IMAGE: ${{ matrix.image }}
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"

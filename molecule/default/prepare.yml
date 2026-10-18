@@ -1,0 +1,55 @@
+---
+# Hawser Requires=docker.service and pings the Docker socket at startup. A
+# stub daemon answering /_ping on the socket stands in for real Docker so the
+# service can start inside the test container.
+- name: Prepare
+  hosts: all
+  become: true
+  tasks:
+    - name: Install the stub Docker API
+      ansible.builtin.copy:
+        dest: /usr/local/bin/stub-dockerd
+        mode: "0755"
+        content: |
+          #!/usr/bin/env python3
+          import http.server, os, socketserver
+          path = "/var/run/docker.sock"
+          if os.path.exists(path):
+              os.unlink(path)
+
+          class Handler(http.server.BaseHTTPRequestHandler):
+              def do_GET(self):
+                  self.send_response(200)
+                  self.send_header("Content-Length", "2")
+                  self.send_header("Api-Version", "1.45")
+                  self.end_headers()
+                  self.wfile.write(b"OK")
+              do_HEAD = do_GET
+              def address_string(self):
+                  return "docker"
+
+          class Server(socketserver.UnixStreamServer):
+              def get_request(self):
+                  request, _ = super().get_request()
+                  return request, ("local", 0)
+
+          Server(path, Handler).serve_forever()
+
+    - name: Install a stub docker.service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/docker.service
+        mode: "0644"
+        content: |
+          [Service]
+          ExecStart=/usr/local/bin/stub-dockerd
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Install an older pinned release for converge to update
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      vars:
+        hawser_version: "0.2.45"
+        hawser_token: molecule-token
