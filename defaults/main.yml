@@ -48,8 +48,9 @@ hawser_packages:
   - ca-certificates
   - curl
 
-# Hide the tasks that handle the token.
-hawser_no_log: true
+# Hide the output of the task that writes the token. Turn it on when the
+# play's output is shipped somewhere other than your own terminal.
+hawser_no_log: false
 
 hawser_arch_map:
   x86_64: amd64

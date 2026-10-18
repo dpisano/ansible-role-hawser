@@ -49,7 +49,7 @@ See `defaults/main.yml` for the full list. The important ones:
 | `hawser_ca_cert`, `hawser_tls_skip_verify` | Edge-mode TLS to Dockhand |
 | `hawser_stacks_dir` | Compose stacks directory (default `/data/stacks`) |
 | `hawser_extra_config` | Extra `KEY: value` pairs for the config file |
-| `hawser_no_log` | Hide token-handling tasks (default `true`) |
+| `hawser_no_log` | Hide token-handling tasks (default `false`) |
 
 Example playbook
 ----------------
