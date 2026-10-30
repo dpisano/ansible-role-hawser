@@ -58,6 +58,10 @@ jobs:
       - name: Install tools
         run: pip install ansible-core molecule "molecule-plugins[docker]" docker
 
+      # ansible.builtin.package delegates to community.general.pacman on Arch.
+      - name: Install collections
+        run: ansible-galaxy collection install community.general
+
       - name: molecule test
         run: molecule test -s ${{ matrix.scenario }}
         working-directory: ${{ github.event.repository.name }}

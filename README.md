@@ -10,6 +10,9 @@ release tarball for the host's architecture (amd64, arm64, arm), verifies it
 against the release's `checksums.txt`, and installs the same systemd unit
 upstream ships. Docker must already be installed.
 
+On Arch Linux the `community.general` collection is required (the `pacman`
+module); the full `ansible` package includes it.
+
 What it does
 ------------
 
