@@ -1,0 +1,29 @@
+---
+# Arch Linux has no geerlingguy systemd image, so this scenario builds one from
+# the Dockerfile beside it and reuses the default scenario's playbooks.
+driver:
+  name: docker
+platforms:
+  - name: instance
+    image: hawser-molecule-arch:latest
+    dockerfile: Dockerfile
+    command: ""
+    pre_build_image: false
+    privileged: true
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.."
+  config_options:
+    defaults:
+      interpreter_python: auto_silent
+      callbacks_enabled: profile_tasks
+  playbooks:
+    prepare: ../default/prepare.yml
+    converge: ../default/converge.yml
+    verify: ../default/verify.yml
+verifier:
+  name: ansible
