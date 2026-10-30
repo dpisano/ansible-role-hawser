@@ -29,15 +29,21 @@ jobs:
         run: ansible-lint
 
   molecule:
-    name: Molecule (${{ matrix.image }})
+    name: Molecule (${{ matrix.name }})
     needs: lint
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - geerlingguy/docker-debian13-ansible:latest
-          - geerlingguy/docker-ubuntu2404-ansible:latest
+        include:
+          - name: geerlingguy/docker-debian13-ansible:latest
+            scenario: default
+            image: geerlingguy/docker-debian13-ansible:latest
+          - name: geerlingguy/docker-ubuntu2404-ansible:latest
+            scenario: default
+            image: geerlingguy/docker-ubuntu2404-ansible:latest
+          - name: archlinux
+            scenario: arch
     steps:
       # Molecule resolves the role by its directory name; keep the checkout
       # named after the repository so ANSIBLE_ROLES_PATH=.. finds it.
@@ -52,8 +58,12 @@ jobs:
       - name: Install tools
         run: pip install ansible-core molecule "molecule-plugins[docker]" docker
 
+      # ansible.builtin.package delegates to community.general.pacman on Arch.
+      - name: Install collections
+        run: ansible-galaxy collection install community.general
+
       - name: molecule test
-        run: molecule test
+        run: molecule test -s ${{ matrix.scenario }}
         working-directory: ${{ github.event.repository.name }}
         env:
           MOLECULE_IMAGE: ${{ matrix.image }}
