@@ -35,9 +35,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - geerlingguy/docker-debian13-ansible:latest
-          - geerlingguy/docker-ubuntu2404-ansible:latest
+        include:
+          - image: geerlingguy/docker-debian13-ansible:latest
+          - image: geerlingguy/docker-ubuntu2404-ansible:latest
+          - image: hawser-molecule-arch:latest
+            build: molecule/arch-image
     steps:
       # Molecule resolves the role by its directory name; keep the checkout
       # named after the repository so ANSIBLE_ROLES_PATH=.. finds it.
@@ -52,10 +54,16 @@ jobs:
       - name: Install tools
         run: pip install ansible-core molecule "molecule-plugins[docker]" docker
 
+      - name: Build the Arch Linux test image
+        if: matrix.build
+        run: docker build -t ${{ matrix.image }} ${{ matrix.build }}
+        working-directory: ${{ github.event.repository.name }}
+
       - name: molecule test
         run: molecule test
         working-directory: ${{ github.event.repository.name }}
         env:
           MOLECULE_IMAGE: ${{ matrix.image }}
+          MOLECULE_PULL: ${{ matrix.build && 'false' || 'true' }}
           PY_COLORS: "1"
           ANSIBLE_FORCE_COLOR: "1"

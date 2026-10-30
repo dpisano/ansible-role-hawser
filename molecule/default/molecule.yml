@@ -6,6 +6,8 @@ platforms:
     image: "${MOLECULE_IMAGE:-geerlingguy/docker-debian13-ansible:latest}"
     command: ""
     pre_build_image: true
+    # CI sets MOLECULE_PULL=false for the locally built Arch image.
+    pull: "${MOLECULE_PULL:-true}"
     privileged: true
     cgroupns_mode: host
     volumes:
