@@ -3,7 +3,7 @@ ansible-role-hawser
 
 Installs, configures and updates [Hawser](https://github.com/Finsys/hawser),
 the remote Docker agent for [Dockhand](https://github.com/Finsys/dockhand), as
-a systemd service on Debian/Ubuntu hosts.
+a systemd service on Debian/Ubuntu and Arch Linux hosts.
 
 Rather than piping the upstream `install.sh` into bash, the role downloads the
 release tarball for the host's architecture (amd64, arm64, arm), verifies it
